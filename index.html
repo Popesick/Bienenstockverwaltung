@@ -423,11 +423,7 @@ const MITTEL = ['ameisensäure', 'oxalsäure', 'milchsäure', 'thymol', 'apivar'
 function parseEntry(raw) {
   const t = normalize(raw), p = {};
   let m;
-  if (/\bgestern\b/.test(t)) p.datum = shiftDay(-1); else if (/\bvorgestern\b/.test(t)) p.datum = shiftDay(-2); else if (/\bheute\b/.test(t)) p.datum = today();
-  if ((m = t.match(/(?:datum|am)\s+(\d{1,2})\.\s*(\d{1,2})\.?(?:\s*(\d{4}))?/))) {
-    const y = m[3] || new Date().getFullYear();
-    p.datum = `${y}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
-  }
+  const dt = parseDate(raw); if (dt) p.datum = dt;
   if ((m = t.match(new RegExp('gewicht\\D{0,12}' + NUM)))) p.gewicht = toNum(m[1]);
 
   if (/kein(?:e)?\s+futter|futter\s+nein|nicht\s+gef[üu]ttert|ohne\s+futter|futterzugabe\s+nein/.test(t)) { p.futter = false; p.futterMenge = null; }
@@ -456,6 +452,31 @@ function parseEntry(raw) {
     }
   }
   return p;
+}
+
+const MONTHS = ['januar', 'februar', 'märz', 'april', 'mai', 'juni', 'juli', 'august', 'september', 'oktober', 'november', 'dezember'];
+const NW = { einem: 1, einer: 1, ein: 1, eins: 1, zwei: 2, drei: 3, vier: 4, 'fünf': 5, sechs: 6, sieben: 7, acht: 8, neun: 9, zehn: 10 };
+function mkDate(d, mo, y) {
+  d = +d; mo = +mo; y = y ? +y : new Date().getFullYear();
+  if (y < 100) y += 2000;
+  const x = new Date(y, mo - 1, d);
+  if (mo < 1 || mo > 12 || x.getMonth() !== mo - 1 || x.getDate() !== d) return null;
+  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+// Erkennt gesprochene Datumsangaben: "gestern", "vor 3 Tagen", "12. Mai", "15. Oktober 2026", "am 12.5.", "12.05.2026"
+function parseDate(raw) {
+  const t = raw.toLowerCase().replace(/maerz/g, 'märz');
+  let m;
+  if ((m = t.match(new RegExp('(\\d{1,2})\\.?\\s*(' + MONTHS.join('|') + ')(?:\\s*(\\d{4}))?')))) return mkDate(m[1], MONTHS.indexOf(m[2]) + 1, m[3]);
+  if ((m = t.match(/(?:datum|\bam)\s+(\d{1,2})\.\s*(\d{1,2})\.?(?:\s*(\d{4}|\d{2})\b)?/)) || (m = t.match(/\b(\d{1,2})\.(\d{1,2})\.(\d{4})?/))) return mkDate(m[1], m[2], m[3]);
+  if (/\bvorgestern\b/.test(t)) return shiftDay(-2);
+  if (/\bgestern\b/.test(t)) return shiftDay(-1);
+  if ((m = t.match(/vor\s+(\d+|einem|einer|zwei|drei|vier|fünf|sechs|sieben|acht|neun|zehn)\s+(tag|woche)/))) {
+    const n = /^\d/.test(m[1]) ? +m[1] : NW[m[1]];
+    return shiftDay(-n * (m[2] === 'woche' ? 7 : 1));
+  }
+  if (/\bheute\b/.test(t)) return today();
+  return null;
 }
 function shiftDay(n) { const d = new Date(today() + 'T00:00:00'); d.setDate(d.getDate() + n); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); }
 
