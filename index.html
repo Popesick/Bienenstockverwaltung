@@ -147,6 +147,20 @@ footer{margin:30px 0 10px}
   </form>
 </dialog>
 
+<dialog id="cdlg">
+  <form id="cform" method="dialog">
+    <strong>Name / Nummer ändern</strong>
+    <label class="f">Art<select id="c_type"><option value="volk">Volk</option><option value="ableger">Ableger</option></select></label>
+    <label class="f">Nummer<input type="number" id="c_nr" min="1" step="1" inputmode="numeric" required></label>
+    <label class="f">Zusatzname (optional)<input type="text" id="c_label" placeholder="z. B. Standort Waldrand"></label>
+    <div class="hint" id="c_err" style="color:var(--danger)"></div>
+    <div class="row" style="justify-content:flex-end">
+      <button type="button" id="cCancel">Abbrechen</button>
+      <button type="submit" class="primary">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
 <input type="file" id="importFile" accept="application/json" hidden>
 
 <script>
@@ -171,16 +185,18 @@ function save() {
   try { localStorage.setItem(KEY, JSON.stringify(db)); }
   catch (e) { alert('Speichern im Browser nicht möglich. Bitte Daten über "Sichern" exportieren.'); }
 }
-const name = c => (c.type === 'volk' ? 'Volk ' : 'Ableger ') + c.nr;
+const name = c => (c.type === 'volk' ? 'Volk ' : 'Ableger ') + c.nr + (c.label ? ' – ' + c.label : '');
+const baseName = c => (c.type === 'volk' ? 'Volk ' : 'Ableger ') + c.nr;
 const findColony = id => db.colonies.find(c => c.id === id);
 const sorted = c => [...c.entries].sort((a, b) => b.datum.localeCompare(a.datum) || b.id.localeCompare(a.id));
 
 function addColony(type) {
-  const nr = ++db.counters[type];
-  const c = { id: uid(), type, nr, created: today(), entries: [] };
+  let nr = 1; // kleinste freie Nummer (auch frühere, gelöschte Nummern werden wieder vergeben)
+  while (db.colonies.some(x => x.type === type && x.nr === nr)) nr++;
+  const c = { id: uid(), type, nr, label: '', created: today(), entries: [] };
   db.colonies.push(c); save();
   toast(name(c) + ' angelegt');
-  render();
+  view = null; render();
   return c;
 }
 function deleteColony(id) {
@@ -214,7 +230,8 @@ function colonyCard(c) {
 }
 
 function renderHome() {
-  const v = db.colonies.filter(c => c.type === 'volk'), a = db.colonies.filter(c => c.type === 'ableger');
+  const byNr = (x, y) => x.nr - y.nr;
+  const v = db.colonies.filter(c => c.type === 'volk').sort(byNr), a = db.colonies.filter(c => c.type === 'ableger').sort(byNr);
   const section = (t, list, btn, label) => `<h2>${t} (${list.length})</h2>` + (list.length
     ? `<div class="grid">${list.map(colonyCard).join('')}</div>`
     : `<div class="card muted">Noch nichts angelegt. <button class="small" data-a="${btn}">${label}</button></div>`);
@@ -234,7 +251,8 @@ function renderDetail(c) {
     <div class="row" style="justify-content:space-between">
       <button class="small" data-a="back">← Übersicht</button>
     </div>
-    <h2 style="font-size:1.5rem">${esc(name(c))}</h2>
+    <div class="row" style="margin-top:14px;justify-content:space-between"><h2 style="font-size:1.5rem;margin:0">${esc(name(c))}</h2>
+      <button class="small" data-a="editColony">✎ Name / Nummer</button></div>
     <div class="muted">Angelegt am ${fmtDate(c.created)}</div>
     <div style="margin-top:14px">${list.length ? list.map(e => entryCard(e)).join('') : '<div class="card muted">Noch keine Einträge.</div>'}</div>
     <footer><button class="small danger" data-a="delColony" data-id="${c.id}">${esc(name(c))} löschen</button></footer>`;
@@ -316,6 +334,24 @@ $('#cancelBtn').onclick = () => { stopListening(); $('#dlg').close(); };
 $('#dlg').addEventListener('close', stopListening);
 document.querySelectorAll('input[name=futter],input[name=varroa]').forEach(r => r.addEventListener('change', syncToggles));
 
+/* ---------- Volk umbenennen / Nummer ändern ---------- */
+function openColonyForm(cid) {
+  const c = findColony(cid); if (!c) return;
+  $('#c_type').value = c.type; $('#c_nr').value = c.nr; $('#c_label').value = c.label || ''; $('#c_err').textContent = '';
+  $('#cform').dataset.id = cid; $('#cdlg').showModal();
+}
+$('#cform').addEventListener('submit', ev => {
+  ev.preventDefault();
+  const c = findColony($('#cform').dataset.id);
+  const type = $('#c_type').value, nr = parseInt($('#c_nr').value, 10);
+  if (!(nr >= 1)) { $('#c_err').textContent = 'Bitte eine Nummer ab 1 eingeben.'; return; }
+  const clash = db.colonies.find(x => x.id !== c.id && x.type === type && x.nr === nr);
+  if (clash) { $('#c_err').textContent = baseName(clash) + ' existiert bereits. Bitte andere Nummer wählen oder diese zuerst ändern.'; return; }
+  Object.assign(c, { type, nr, label: $('#c_label').value.trim() });
+  save(); $('#cdlg').close(); render(); toast('Gespeichert');
+});
+$('#cCancel').onclick = () => $('#cdlg').close();
+
 /* ---------- Spracherkennung ---------- */
 let rec = null, recBtn = null;
 function stopListening() { if (rec) { try { rec.abort(); } catch (e) {} } rec = null; if (recBtn) recBtn.classList.remove('on'); recBtn = null; }
@@ -395,8 +431,8 @@ function shiftDay(n) { const d = new Date(today() + 'T00:00:00'); d.setDate(d.ge
 function handleCommand(raw) {
   const t = normalize(raw);
   toast('„' + raw + '“');
-  if (/\bneu(?:es|er|e)?\s+(?:bienen)?volk\b/.test(t) || /\bvolk\s+anlegen\b/.test(t)) { view = addColony('volk').id; render(); return; }
-  if (/\bneu(?:es|er|e)?\s+ableger\b/.test(t) || /\bableger\s+anlegen\b/.test(t)) { view = addColony('ableger').id; render(); return; }
+  if (/\bneu(?:es|er|e)?\s+(?:bienen)?volk\b/.test(t) || /\bvolk\s+anlegen\b/.test(t)) { addColony('volk'); return; }
+  if (/\bneu(?:es|er|e)?\s+ableger\b/.test(t) || /\bableger\s+anlegen\b/.test(t)) { addColony('ableger'); return; }
   const m = t.match(/\b(volk|ableger)\s+(\d+)/);
   let c = null;
   if (m) {
@@ -439,11 +475,12 @@ document.addEventListener('click', ev => {
   const el = ev.target.closest('[data-a]'); if (!el) return;
   const a = el.dataset.a, id = el.dataset.id;
   switch (a) {
-    case 'newVolk': view = addColony('volk').id; render(); break;
-    case 'newAbleger': view = addColony('ableger').id; render(); break;
+    case 'newVolk': addColony('volk'); break;
+    case 'newAbleger': addColony('ableger'); break;
     case 'open': view = id; render(); break;
     case 'back': view = null; render(); break;
     case 'newEntry': openForm(view); break;
+    case 'editColony': openColonyForm(view); break;
     case 'editEntry': openForm(view, id); break;
     case 'delEntry': if (confirm('Eintrag löschen?')) { const c = findColony(view); c.entries = c.entries.filter(e => e.id !== id); save(); render(); } break;
     case 'delColony': deleteColony(id); break;
