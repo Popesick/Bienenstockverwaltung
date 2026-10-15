@@ -68,6 +68,24 @@ legend{font-weight:600;font-size:.95rem;padding:0;margin-bottom:4px}
 .transcript{font-style:italic;min-height:1.4em}
 .hint{font-size:.85rem;color:var(--muted)}
 footer{margin:30px 0 10px}
+.tabs{display:flex;gap:8px;margin:14px 0}
+.tabs button{flex:1}
+.tabs button.active{background:var(--honey);color:var(--on-honey);border-color:var(--honey-d);font-weight:600}
+.rep h3{margin:0 0 4px;font-size:1.05rem}
+.rep .card{margin-bottom:14px}
+.rep svg{width:100%;height:auto;display:block;margin-top:8px}
+.rep .ax{stroke:var(--line);stroke-width:1}
+.rep .tx{fill:var(--muted);font-size:17px}
+.rep .ln{fill:none;stroke:var(--honey-d);stroke-width:2.5;stroke-linejoin:round}
+.rep .pt{fill:var(--honey);stroke:var(--ink);stroke-width:1.5}
+.rep .vl{fill:var(--ink);font-size:17px;font-weight:600}
+.tl{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.chip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:.9rem;background:var(--bg)}
+.bars{display:grid;gap:6px;margin-top:8px}
+.bar{display:grid;grid-template-columns:78px 1fr auto;gap:8px;align-items:center;font-size:.9rem}
+.bar i{display:block;height:14px;border-radius:7px;background:var(--honey);border:1px solid var(--honey-d);min-width:4px}
+.stat{display:flex;gap:18px;flex-wrap:wrap;margin-top:4px}
+.stat b{font-size:1.1rem}
 .powered{display:flex;flex-direction:column;align-items:center;gap:4px;margin:24px 0 8px;color:var(--muted);font-size:.8rem;letter-spacing:.06em;text-transform:uppercase}
 .powered img{height:auto;max-width:140px}
 .fab{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);padding:10px calc(12px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));display:flex;gap:10px;justify-content:center}
@@ -210,6 +228,7 @@ function deleteColony(id) {
 
 /* ---------- Ansichten ---------- */
 let view = null; // null = Übersicht, sonst Colony-ID
+let tab = 'karte'; // 'karte' | 'report'
 function dot(v) { return v ? `<span class="dot ${v}" title="${AMPEL[v]}"></span> ${AMPEL[v]}` : '<span class="dot none"></span> –'; }
 
 function render() {
@@ -257,8 +276,67 @@ function renderDetail(c) {
     <div class="row" style="margin-top:14px;justify-content:space-between"><h2 style="font-size:1.5rem;margin:0">${esc(name(c))}</h2>
       <button class="small" data-a="editColony">✎ Name / Nummer</button></div>
     <div class="muted">Angelegt am ${fmtDate(c.created)}</div>
-    <div style="margin-top:14px">${list.length ? list.map(e => entryCard(e)).join('') : '<div class="card muted">Noch keine Einträge.</div>'}</div>
+    <div class="tabs"><button data-a="tab" data-id="karte" class="${tab === 'karte' ? 'active' : ''}">Stockkarte</button><button data-a="tab" data-id="report" class="${tab === 'report' ? 'active' : ''}">📊 Auswertung</button></div>
+    <div>${tab === 'report' ? reportHtml(c)
+      : list.length ? list.map(e => entryCard(e)).join('') : '<div class="card muted">Noch keine Einträge.</div>'}</div>
     <footer><button class="small danger" data-a="delColony" data-id="${c.id}">${esc(name(c))} löschen</button></footer>`;
+}
+
+/* ---------- Auswertung ---------- */
+function weightChart(pts) {
+  const W = 600, H = 240, L = 56, R = 14, T = 16, B = 30;
+  const xs = pts.map(p => new Date(p.datum + 'T00:00:00').getTime());
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  let lo = Math.min(...pts.map(p => p.gewicht)), hi = Math.max(...pts.map(p => p.gewicht));
+  if (hi === lo) { lo -= 1; hi += 1; }
+  const pad = (hi - lo) * 0.12; lo = Math.max(0, lo - pad); hi += pad;
+  const X = t => x1 === x0 ? (L + W - R) / 2 : L + (t - x0) / (x1 - x0) * (W - L - R);
+  const Y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  const fmt = v => (Math.round(v * 10) / 10).toString().replace('.', ',');
+  let g = '';
+  for (let i = 0; i < 4; i++) {
+    const v = lo + (hi - lo) * i / 3, y = Y(v);
+    g += `<line class="ax" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text class="tx" x="${L - 6}" y="${y + 4}" text-anchor="end">${fmt(v)}</text>`;
+  }
+  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${X(xs[i]).toFixed(1)},${Y(p.gewicht).toFixed(1)}`).join(' ');
+  const dots = pts.map((p, i) => `<circle class="pt" cx="${X(xs[i]).toFixed(1)}" cy="${Y(p.gewicht).toFixed(1)}" r="4.5"><title>${fmtDate(p.datum)}: ${fmtNum(p.gewicht)} kg</title></circle>`).join('');
+  const lab = pts.length <= 8 ? pts.map((p, i) => `<text class="vl" x="${X(xs[i]).toFixed(1)}" y="${(Y(p.gewicht) - 9).toFixed(1)}" text-anchor="middle">${fmt(p.gewicht)}</text>`).join('') : '';
+  const first = pts[0], last = pts[pts.length - 1];
+  const xl = `<text class="tx" x="${X(xs[0])}" y="${H - 8}" text-anchor="${pts.length > 1 ? 'start' : 'middle'}">${fmtDate(first.datum)}</text>` + (pts.length > 1 ? `<text class="tx" x="${X(xs[xs.length - 1])}" y="${H - 8}" text-anchor="end">${fmtDate(last.datum)}</text>` : '');
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Gewichtsverlauf in kg">${g}<path class="ln" d="${line}"/>${dots}${lab}${xl}</svg>`;
+}
+function timeline(list, key) {
+  const items = list.filter(e => e[key]);
+  return items.length ? `<div class="tl">${items.map(e => `<span class="chip">${fmtDate(e.datum)} ${dot(e[key])}${key === 'koeniginStatus' && e.koeniginGetauscht ? ' · <b>Königin getauscht</b>' : ''}</span>`).join('')}</div>` : '<div class="muted">Keine Daten.</div>';
+}
+function reportHtml(c) {
+  const asc = [...c.entries].sort((a, b) => a.datum.localeCompare(b.datum) || a.id.localeCompare(b.id));
+  if (!asc.length) return '<div class="card muted">Noch keine Einträge – die Auswertung erscheint, sobald Daten erfasst sind.</div>';
+  const w = asc.filter(e => e.gewicht != null);
+  let wHtml = '<div class="muted">Keine Gewichtsangaben.</div>';
+  if (w.length) {
+    const d = w[w.length - 1].gewicht - w[0].gewicht, sign = d > 0 ? '+' : '';
+    wHtml = `<div class="stat"><span>Aktuell <b>${fmtNum(w[w.length - 1].gewicht)} kg</b></span>`
+      + (w.length > 1 ? `<span>Veränderung <b>${sign}${fmtNum(Math.round(d * 10) / 10)} kg</b></span><span>seit ${fmtDate(w[0].datum)}</span>` : '')
+      + `</div>` + weightChart(w);
+  }
+  const f = asc.filter(e => e.futter);
+  const sums = {}; f.forEach(e => { if (e.futterMenge != null) sums[e.futterEinheit] = (sums[e.futterEinheit] || 0) + e.futterMenge; });
+  const mx = Math.max(1, ...f.map(e => e.futterMenge || 0));
+  const fHtml = f.length
+    ? `<div class="stat"><span>Fütterungen <b>${f.length}</b></span>${Object.entries(sums).map(([u, v]) => `<span>Gesamt <b>${fmtNum(Math.round(v * 10) / 10)} ${esc(u)}</b></span>`).join('')}</div>
+       <div class="bars">${f.map(e => `<div class="bar"><span>${fmtDate(e.datum)}</span><i style="width:${Math.max(2, (e.futterMenge || 0) / mx * 100)}%"></i><span>${e.futterMenge != null ? fmtNum(e.futterMenge) + ' ' + esc(e.futterEinheit) : 'k. A.'}</span></div>`).join('')}</div>`
+    : '<div class="muted">Noch keine Fütterung erfasst.</div>';
+  const v = asc.filter(e => e.varroa);
+  const vHtml = v.length
+    ? `<div class="tl">${v.map(e => `<span class="chip">${fmtDate(e.datum)} · <b>${esc(e.varroaMittel || 'Mittel nicht angegeben')}</b></span>`).join('')}</div>`
+    : '<div class="muted">Noch keine Varroa-Behandlung erfasst.</div>';
+  return `<div class="rep">
+    <div class="card"><h3>Gewichtsentwicklung</h3>${wHtml}</div>
+    <div class="card"><h3>Fütterung (Zeitpunkt und Menge)</h3>${fHtml}</div>
+    <div class="card"><h3>Zustand der Königin</h3>${timeline(asc, 'koeniginStatus')}</div>
+    <div class="card"><h3>Zustand des Volks</h3>${timeline(asc, 'zustand')}</div>
+    <div class="card"><h3>Varroa-Behandlung</h3>${vHtml}</div></div>`;
 }
 
 function entryCard(e) {
@@ -532,7 +610,8 @@ document.addEventListener('click', ev => {
   switch (a) {
     case 'newVolk': addColony('volk'); break;
     case 'newAbleger': addColony('ableger'); break;
-    case 'open': view = id; render(); break;
+    case 'open': view = id; tab = 'karte'; render(); break;
+    case 'tab': tab = id; render(); break;
     case 'back': view = null; render(); break;
     case 'newEntry': openForm(view); break;
     case 'editColony': openColonyForm(view); break;
