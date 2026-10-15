@@ -68,6 +68,8 @@ legend{font-weight:600;font-size:.95rem;padding:0;margin-bottom:4px}
 .transcript{font-style:italic;min-height:1.4em}
 .hint{font-size:.85rem;color:var(--muted)}
 footer{margin:30px 0 10px}
+.powered{display:flex;flex-direction:column;align-items:center;gap:4px;margin:24px 0 8px;color:var(--muted);font-size:.8rem;letter-spacing:.06em;text-transform:uppercase}
+.powered img{height:auto;max-width:140px}
 .fab{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);padding:10px calc(12px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));display:flex;gap:10px;justify-content:center}
 .fab button{flex:1;max-width:260px}
 #installBtn{display:none}
@@ -243,6 +245,7 @@ function renderHome() {
         <button class="small" data-a="csv">📄 CSV-Export</button>
       </footer>
       <p class="hint">Daten liegen lokal in diesem Browser. Regelmäßig sichern!${SR ? '<br>Zum Abschluss „fertig“ sagen (oder das Mikrofon erneut tippen). Beispiel: „Neues Volk“, „Neuer Ableger“, „Volk 3 Gewicht 25,5 Futter ja 5 Liter Königin grün Varroa ja Ameisensäure Zustand gelb“.' : '<br>Spracherkennung wird von diesem Browser nicht unterstützt (Chrome oder Edge verwenden).'}</p>`;
+  $('#app').insertAdjacentHTML('beforeend', `<div class="powered"><span>Powered by</span><img src="logo-hirsch.webp" alt="Imkerei Hirsch – Bayerischer Bienenhonig" width="140" height="131"></div>`);
 }
 
 function renderDetail(c) {
