@@ -242,7 +242,7 @@ function renderHome() {
         <button class="small" data-a="import">📂 Wiederherstellen</button>
         <button class="small" data-a="csv">📄 CSV-Export</button>
       </footer>
-      <p class="hint">Daten liegen lokal in diesem Browser. Regelmäßig sichern!${SR ? '<br>Sprachbefehle z. B.: „Neues Volk“, „Neuer Ableger“, „Volk 3 Gewicht 25,5 Futter ja 5 Liter Königin grün Varroa ja Ameisensäure Zustand gelb“.' : '<br>Spracherkennung wird von diesem Browser nicht unterstützt (Chrome oder Edge verwenden).'}</p>`;
+      <p class="hint">Daten liegen lokal in diesem Browser. Regelmäßig sichern!${SR ? '<br>Zum Abschluss „fertig“ sagen (oder das Mikrofon erneut tippen). Beispiel: „Neues Volk“, „Neuer Ableger“, „Volk 3 Gewicht 25,5 Futter ja 5 Liter Königin grün Varroa ja Ameisensäure Zustand gelb“.' : '<br>Spracherkennung wird von diesem Browser nicht unterstützt (Chrome oder Edge verwenden).'}</p>`;
 }
 
 function renderDetail(c) {
@@ -353,28 +353,59 @@ $('#cform').addEventListener('submit', ev => {
 $('#cCancel').onclick = () => $('#cdlg').close();
 
 /* ---------- Spracherkennung ---------- */
-let rec = null, recBtn = null;
-function stopListening() { if (rec) { try { rec.abort(); } catch (e) {} } rec = null; if (recBtn) recBtn.classList.remove('on'); recBtn = null; }
+let rec = null, recBtn = null, recCtl = null;
+// Verwirft eine laufende Aufnahme (z. B. beim Schließen des Formulars)
+function stopListening() {
+  if (recCtl) { recCtl.discard = true; recCtl.done = true; }
+  if (rec) { try { rec.abort(); } catch (e) {} }
+  rec = null; if (recBtn) recBtn.classList.remove('on'); recBtn = null; recCtl = null;
+}
+// Hört durchgehend zu, bis "fertig" gesagt oder der Button erneut getippt wird.
 function listen(btn, onText, onInterim) {
-  if (rec) { stopListening(); return; }
-  rec = new SR(); recBtn = btn;
-  rec.lang = 'de-DE'; rec.interimResults = true; rec.continuous = false;
-  btn.classList.add('on');
-  let finalText = '';
-  rec.onresult = ev => {
-    let interim = '';
-    for (let i = ev.resultIndex; i < ev.results.length; i++) {
-      const t = ev.results[i][0].transcript;
-      if (ev.results[i].isFinal) finalText += t; else interim += t;
-    }
-    onInterim && onInterim(finalText + interim);
+  if (recCtl) { // zweiter Tipp = fertig
+    recCtl.finish(); return;
+  }
+  const ctl = recCtl = { acc: '', cur: '', done: false, discard: false };
+  recBtn = btn; btn.classList.add('on');
+  const FERTIG = /\bfertig\b/i;
+  const full = extra => (ctl.acc + ' ' + ctl.cur + ' ' + (extra || '')).replace(/\s+/g, ' ').trim();
+  const deliver = () => {
+    const m = full().split(FERTIG)[0].trim().replace(/[,\s]+$/, '');
+    if (rec) { try { rec.abort(); } catch (e) {} }
+    rec = null; btn.classList.remove('on'); recBtn = null; recCtl = null;
+    if (!ctl.discard && m) onText(m); else if (!ctl.discard) toast('Nichts erkannt.');
   };
-  rec.onerror = ev => {
-    const m = { 'not-allowed': 'Mikrofonzugriff nicht erlaubt.', 'no-speech': 'Nichts gehört.', 'audio-capture': 'Kein Mikrofon gefunden.', 'network': 'Spracherkennung benötigt Internet (Browser-Dienst).' };
-    if (ev.error !== 'aborted') toast(m[ev.error] || 'Fehler: ' + ev.error);
+  ctl.finish = () => { if (ctl.done) return; ctl.done = true; deliver(); };
+  const startSession = () => {
+    if (ctl.done) return;
+    const r = rec = new SR();
+    r.lang = 'de-DE'; r.interimResults = true; r.continuous = true;
+    r.onresult = ev => {
+      let fin = '', interim = '';
+      for (let i = 0; i < ev.results.length; i++) {
+        const t = ev.results[i][0].transcript;
+        if (ev.results[i].isFinal) fin += ' ' + t; else interim += ' ' + t;
+      }
+      ctl.cur = fin.trim();
+      const all = full(interim);
+      onInterim && onInterim(all.split(FERTIG)[0].trim() + (FERTIG.test(all) ? ' ✔' : ''));
+      if (FERTIG.test(all)) { ctl.cur = (fin + ' ' + interim).trim(); ctl.finish(); }
+    };
+    r.onerror = ev => {
+      if (ev.error === 'no-speech' || ev.error === 'aborted') return; // läuft über onend weiter
+      const m = { 'not-allowed': 'Mikrofonzugriff nicht erlaubt.', 'service-not-allowed': 'Spracherkennung nicht erlaubt.', 'audio-capture': 'Kein Mikrofon gefunden.', 'network': 'Spracherkennung benötigt Internet (Browser-Dienst).' };
+      toast(m[ev.error] || 'Fehler: ' + ev.error);
+      ctl.finish();
+    };
+    r.onend = () => { // Browser beendet Sitzungen bei Sprechpausen -> neu starten
+      if (ctl.done || rec !== r) return;
+      ctl.acc = full(); ctl.cur = '';
+      setTimeout(startSession, 150);
+    };
+    try { r.start(); } catch (e) { setTimeout(startSession, 300); }
   };
-  rec.onend = () => { const t = finalText.trim(); const b = btn; rec = null; recBtn = null; b.classList.remove('on'); if (t) onText(t); };
-  try { rec.start(); } catch (e) { stopListening(); }
+  toast('🎤 Sprechen Sie … zum Abschluss „fertig“ sagen', true);
+  startSession();
 }
 
 const WORDS = { eins: 1, ein: 1, zwei: 2, drei: 3, vier: 4, 'fünf': 5, sechs: 6, sieben: 7, acht: 8, neun: 9, zehn: 10, elf: 11, 'zwölf': 12 };
