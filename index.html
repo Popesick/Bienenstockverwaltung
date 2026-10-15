@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e0a200">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Stockkarten">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Stockkarten Bienen</title>
+<style>
+:root{
+  --bg:#fbf6e9; --card:#ffffff; --ink:#2b2416; --muted:#7a6f58; --line:#e8dcb8;
+  --honey:#e0a200; --honey-d:#b57f00; --on-honey:#2b2416;
+  --g:#2e9e4f; --y:#f0c419; --r:#d6402f; --danger:#b3261e;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#1a1610; --card:#262016; --ink:#f3ead3; --muted:#b2a688; --line:#43391f; --honey:#f0b429; --honey-d:#ffd36b; --on-honey:#1a1610; --danger:#ff8a80; }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--honey);color:var(--on-honey);padding:calc(10px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) 10px calc(12px + env(safe-area-inset-left));display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+header h1{font-size:1.2rem;margin:0;flex:1;min-width:160px}
+main{max-width:980px;margin:0 auto;padding:14px calc(14px + env(safe-area-inset-right)) calc(110px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left))}
+button{min-height:44px;font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:9px 14px}
+button:hover{border-color:var(--honey-d)}
+button.primary{background:var(--honey);color:var(--on-honey);border-color:var(--honey-d);font-weight:600}
+header button{border-color:rgba(0,0,0,.25)}
+button.danger{color:var(--danger)}
+button.small{padding:6px 12px;font-size:.9rem;min-height:40px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.colony{cursor:pointer}
+.colony:hover{border-color:var(--honey-d)}
+.colony h3{margin:0 0 6px}
+.muted{color:var(--muted);font-size:.92rem}
+h2{margin:22px 0 10px;font-size:1.1rem}
+.dot{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:-2px;border:1px solid rgba(0,0,0,.3)}
+.dot.gruen{background:var(--g)} .dot.gelb{background:var(--y)} .dot.rot{background:var(--r)} .dot.none{background:transparent;border-style:dashed}
+.tag{display:inline-flex;gap:5px;align-items:center;margin-right:10px;white-space:nowrap}
+.entry{display:grid;grid-template-columns:1fr auto;gap:8px;margin-bottom:10px}
+.entry .date{font-weight:700}
+.facts{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:6px}
+dialog{border:1px solid var(--line);border-radius:18px 18px 0 0;background:var(--card);color:var(--ink);padding:0;width:min(560px,100vw);max-width:100vw;max-height:94vh;margin:auto auto 0;overflow:auto;overscroll-behavior:contain}
+@media(min-width:700px){dialog{border-radius:16px;margin:auto}}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+form{padding:16px 16px calc(16px + env(safe-area-inset-bottom));display:grid;gap:14px}
+label.f{display:grid;gap:4px;font-weight:600;font-size:.95rem}
+input,select,textarea{font-size:16px;font-family:inherit;min-height:44px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+input:disabled{opacity:.45}
+.seg{display:flex;gap:8px;flex-wrap:wrap}
+.seg label{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:10px 16px;min-height:44px;cursor:pointer;background:var(--bg);font-weight:500}
+.seg input{width:auto;margin:0}
+.seg label:has(input:checked){border-color:var(--honey-d);box-shadow:0 0 0 2px var(--honey)}
+fieldset{border:0;padding:0;margin:0;display:grid;gap:6px}
+legend{font-weight:600;font-size:.95rem;padding:0;margin-bottom:4px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mic{background:var(--card)}
+.mic.on{background:var(--r);color:#fff;border-color:var(--r);animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.6}}
+#toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;max-width:92vw;display:none;z-index:50;text-align:center}
+.transcript{font-style:italic;min-height:1.4em}
+.hint{font-size:.85rem;color:var(--muted)}
+footer{margin:30px 0 10px}
+.fab{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);border-top:1px solid var(--line);padding:10px calc(12px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));display:flex;gap:10px;justify-content:center}
+.fab button{flex:1;max-width:260px}
+#installBtn{display:none}
+@media(max-width:480px){.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>🐝 Stockkarten</h1>
+  <button id="installBtn" class="small">📲 Installieren</button>
+</header>
+<main id="app"></main>
+<nav class="fab" id="bar"></nav>
+<div id="toast"></div>
+
+<dialog id="dlg">
+  <form id="form" method="dialog">
+    <div class="row" style="justify-content:space-between">
+      <strong id="formTitle">Eintrag</strong>
+      <button type="button" class="mic small" id="formMic">🎤 Diktieren</button>
+    </div>
+    <div class="transcript muted" id="transcript"></div>
+    <div class="two">
+      <label class="f">Datum<input type="date" id="f_datum" required></label>
+      <label class="f">Gewicht (kg)<input type="number" id="f_gewicht" step="0.1" min="0" inputmode="decimal"></label>
+    </div>
+
+    <fieldset><legend>Futterzugabe</legend>
+      <div class="seg" data-name="futter">
+        <label><input type="radio" name="futter" value="n" checked> Nein</label>
+        <label><input type="radio" name="futter" value="j"> Ja</label>
+      </div>
+      <div class="two">
+        <label class="f">Futtermenge<input type="number" id="f_menge" step="0.1" min="0" inputmode="decimal"></label>
+        <label class="f">Einheit<select id="f_einheit"><option>kg</option><option>Liter</option></select></label>
+      </div>
+    </fieldset>
+
+    <fieldset><legend>Königin getauscht</legend>
+      <div class="seg">
+        <label><input type="radio" name="qtausch" value="n" checked> Nein</label>
+        <label><input type="radio" name="qtausch" value="j"> Ja</label>
+      </div>
+    </fieldset>
+
+    <fieldset><legend>Status Königin</legend>
+      <div class="seg">
+        <label><input type="radio" name="qstatus" value="gruen" checked><span class="dot gruen"></span>grün</label>
+        <label><input type="radio" name="qstatus" value="gelb"><span class="dot gelb"></span>gelb</label>
+        <label><input type="radio" name="qstatus" value="rot"><span class="dot rot"></span>rot</label>
+      </div>
+    </fieldset>
+
+    <fieldset><legend>Varroa-Behandlung</legend>
+      <div class="seg">
+        <label><input type="radio" name="varroa" value="n" checked> Nein</label>
+        <label><input type="radio" name="varroa" value="j"> Ja</label>
+      </div>
+      <label class="f">Mittel<input type="text" id="f_mittel" list="mittelList" placeholder="z. B. Ameisensäure"></label>
+      <datalist id="mittelList"><option>Ameisensäure</option><option>Oxalsäure</option><option>Milchsäure</option><option>Thymol</option><option>Apivar</option><option>Apiguard</option><option>Formivar</option><option>VarroMed</option></datalist>
+    </fieldset>
+
+    <fieldset><legend>Bewertung Zustand</legend>
+      <div class="seg">
+        <label><input type="radio" name="zustand" value="gruen" checked><span class="dot gruen"></span>grün</label>
+        <label><input type="radio" name="zustand" value="gelb"><span class="dot gelb"></span>gelb</label>
+        <label><input type="radio" name="zustand" value="rot"><span class="dot rot"></span>rot</label>
+      </div>
+    </fieldset>
+
+    <label class="f">Notiz (optional)<textarea id="f_notiz" rows="2"></textarea></label>
+
+    <div class="row" style="justify-content:flex-end">
+      <button type="button" id="cancelBtn">Abbrechen</button>
+      <button type="submit" class="primary">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
+<input type="file" id="importFile" accept="application/json" hidden>
+
+<script>
+'use strict';
+const KEY = 'bienen-stockkarten-v1';
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const today = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+const fmtDate = s => s ? new Date(s + 'T00:00:00').toLocaleDateString('de-DE') : '–';
+const fmtNum = n => n == null || n === '' ? '–' : String(n).replace('.', ',');
+const AMPEL = { gruen: 'grün', gelb: 'gelb', rot: 'rot' };
+
+/* ---------- Daten ---------- */
+let db = load();
+function load() {
+  try { const r = JSON.parse(localStorage.getItem(KEY)); if (r && r.colonies) return r; } catch (e) {}
+  return { counters: { volk: 0, ableger: 0 }, colonies: [] };
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(db)); }
+  catch (e) { alert('Speichern im Browser nicht möglich. Bitte Daten über "Sichern" exportieren.'); }
+}
+const name = c => (c.type === 'volk' ? 'Volk ' : 'Ableger ') + c.nr;
+const findColony = id => db.colonies.find(c => c.id === id);
+const sorted = c => [...c.entries].sort((a, b) => b.datum.localeCompare(a.datum) || b.id.localeCompare(a.id));
+
+function addColony(type) {
+  const nr = ++db.counters[type];
+  const c = { id: uid(), type, nr, created: today(), entries: [] };
+  db.colonies.push(c); save();
+  toast(name(c) + ' angelegt');
+  render();
+  return c;
+}
+function deleteColony(id) {
+  const c = findColony(id);
+  if (!c || !confirm(name(c) + ' mit allen Einträgen wirklich löschen?')) return;
+  db.colonies = db.colonies.filter(x => x.id !== id); save();
+  view = null; render();
+}
+
+/* ---------- Ansichten ---------- */
+let view = null; // null = Übersicht, sonst Colony-ID
+function dot(v) { return v ? `<span class="dot ${v}" title="${AMPEL[v]}"></span> ${AMPEL[v]}` : '<span class="dot none"></span> –'; }
+
+function render() {
+  const det = view && findColony(view);
+  $('#bar').innerHTML = det
+    ? `<button data-a="back">←</button>` + (SR ? `<button class="mic" data-a="entryMic">🎤 Diktat</button>` : '') + `<button class="primary" data-a="newEntry">+ Eintrag</button>`
+    : (SR ? `<button class="mic" data-a="cmdMic">🎤 Sprache</button>` : '') + `<button data-a="newVolk">+ Volk</button><button data-a="newAbleger">+ Ableger</button>`;
+  if (view && findColony(view)) renderDetail(findColony(view)); else { view = null; renderHome(); }
+  window.scrollTo(0, 0);
+}
+
+function colonyCard(c) {
+  const l = sorted(c)[0];
+  return `<div class="card colony" data-a="open" data-id="${c.id}">
+    <h3>${esc(name(c))}</h3>
+    ${l ? `<div class="muted">Letzte Durchsicht: ${fmtDate(l.datum)}${l.gewicht != null ? ' · ' + fmtNum(l.gewicht) + ' kg' : ''}</div>
+      <div class="facts"><span class="tag">Königin: ${dot(l.koeniginStatus)}</span><span class="tag">Zustand: ${dot(l.zustand)}</span></div>`
+      : '<div class="muted">Noch keine Einträge</div>'}
+    <div class="hint">${c.entries.length} Einträge</div></div>`;
+}
+
+function renderHome() {
+  const v = db.colonies.filter(c => c.type === 'volk'), a = db.colonies.filter(c => c.type === 'ableger');
+  const section = (t, list, btn, label) => `<h2>${t} (${list.length})</h2>` + (list.length
+    ? `<div class="grid">${list.map(colonyCard).join('')}</div>`
+    : `<div class="card muted">Noch nichts angelegt. <button class="small" data-a="${btn}">${label}</button></div>`);
+  $('#app').innerHTML = section('Bienenvölker', v, 'newVolk', '+ Volk anlegen')
+    + section('Ableger', a, 'newAbleger', '+ Ableger anlegen')
+    + `<footer class="row">
+        <button class="small" data-a="export">💾 Sichern (JSON)</button>
+        <button class="small" data-a="import">📂 Wiederherstellen</button>
+        <button class="small" data-a="csv">📄 CSV-Export</button>
+      </footer>
+      <p class="hint">Daten liegen lokal in diesem Browser. Regelmäßig sichern!${SR ? '<br>Sprachbefehle z. B.: „Neues Volk“, „Neuer Ableger“, „Volk 3 Gewicht 25,5 Futter ja 5 Liter Königin grün Varroa ja Ameisensäure Zustand gelb“.' : '<br>Spracherkennung wird von diesem Browser nicht unterstützt (Chrome oder Edge verwenden).'}</p>`;
+}
+
+function renderDetail(c) {
+  const list = sorted(c);
+  $('#app').innerHTML = `
+    <div class="row" style="justify-content:space-between">
+      <button class="small" data-a="back">← Übersicht</button>
+    </div>
+    <h2 style="font-size:1.5rem">${esc(name(c))}</h2>
+    <div class="muted">Angelegt am ${fmtDate(c.created)}</div>
+    <div style="margin-top:14px">${list.length ? list.map(e => entryCard(e)).join('') : '<div class="card muted">Noch keine Einträge.</div>'}</div>
+    <footer><button class="small danger" data-a="delColony" data-id="${c.id}">${esc(name(c))} löschen</button></footer>`;
+}
+
+function entryCard(e) {
+  return `<div class="card entry">
+    <div>
+      <div class="date">${fmtDate(e.datum)} <span class="muted">· ${e.gewicht != null ? fmtNum(e.gewicht) + ' kg' : 'kein Gewicht'}</span></div>
+      <div class="facts">
+        <span class="tag">Futter: ${e.futter ? 'ja' + (e.futterMenge != null ? ' (' + fmtNum(e.futterMenge) + ' ' + esc(e.futterEinheit) + ')' : '') : 'nein'}</span>
+        <span class="tag">Königin getauscht: ${e.koeniginGetauscht ? 'ja' : 'nein'}</span>
+        <span class="tag">Königin: ${dot(e.koeniginStatus)}</span>
+        <span class="tag">Varroa: ${e.varroa ? 'ja' + (e.varroaMittel ? ' (' + esc(e.varroaMittel) + ')' : '') : 'nein'}</span>
+        <span class="tag">Zustand: ${dot(e.zustand)}</span>
+      </div>
+      ${e.notiz ? `<div class="muted" style="margin-top:6px">${esc(e.notiz)}</div>` : ''}
+    </div>
+    <div class="row" style="align-content:flex-start">
+      <button class="small" data-a="editEntry" data-id="${e.id}">✎</button>
+      <button class="small danger" data-a="delEntry" data-id="${e.id}">🗑</button>
+    </div></div>`;
+}
+
+/* ---------- Eintragsformular ---------- */
+let editing = null; // {cid, eid}
+const radio = (n, v) => { const r = document.querySelector(`input[name=${n}][value=${v}]`); if (r) r.checked = true; };
+const radioVal = n => document.querySelector(`input[name=${n}]:checked`).value;
+
+function syncToggles() {
+  $('#f_menge').disabled = $('#f_einheit').disabled = radioVal('futter') !== 'j';
+  $('#f_mittel').disabled = radioVal('varroa') !== 'j';
+}
+function fillForm(p) {
+  if (p.datum) $('#f_datum').value = p.datum;
+  if ('gewicht' in p) $('#f_gewicht').value = p.gewicht ?? '';
+  if ('futter' in p) radio('futter', p.futter ? 'j' : 'n');
+  if ('futterMenge' in p) $('#f_menge').value = p.futterMenge ?? '';
+  if (p.futterEinheit) $('#f_einheit').value = p.futterEinheit;
+  if ('koeniginGetauscht' in p) radio('qtausch', p.koeniginGetauscht ? 'j' : 'n');
+  if (p.koeniginStatus) radio('qstatus', p.koeniginStatus);
+  if ('varroa' in p) radio('varroa', p.varroa ? 'j' : 'n');
+  if ('varroaMittel' in p) $('#f_mittel').value = p.varroaMittel ?? '';
+  if (p.zustand) radio('zustand', p.zustand);
+  if ('notiz' in p) $('#f_notiz').value = p.notiz ?? '';
+  syncToggles();
+}
+function openForm(cid, eid, prefill) {
+  const c = findColony(cid); if (!c) return;
+  editing = { cid, eid };
+  const e = eid ? c.entries.find(x => x.id === eid) : null;
+  $('#formTitle').textContent = name(c) + (e ? ' – Eintrag bearbeiten' : ' – Neuer Eintrag');
+  $('#transcript').textContent = '';
+  fillForm({ datum: today(), gewicht: '', futter: false, futterMenge: '', futterEinheit: 'kg', koeniginGetauscht: false,
+    koeniginStatus: 'gruen', varroa: false, varroaMittel: '', zustand: 'gruen', notiz: '' });
+  if (e) fillForm(e);
+  if (prefill) fillForm(prefill);
+  $('#formMic').style.display = SR ? '' : 'none';
+  $('#dlg').showModal();
+}
+$('#form').addEventListener('submit', ev => {
+  ev.preventDefault();
+  const c = findColony(editing.cid);
+  const num = id => { const v = $(id).value.trim().replace(',', '.'); return v === '' || isNaN(+v) ? null : +v; };
+  const futter = radioVal('futter') === 'j', varroa = radioVal('varroa') === 'j';
+  const data = {
+    datum: $('#f_datum').value || today(),
+    gewicht: num('#f_gewicht'),
+    futter, futterMenge: futter ? num('#f_menge') : null, futterEinheit: $('#f_einheit').value,
+    koeniginGetauscht: radioVal('qtausch') === 'j', koeniginStatus: radioVal('qstatus'),
+    varroa, varroaMittel: varroa ? $('#f_mittel').value.trim() : '',
+    zustand: radioVal('zustand'), notiz: $('#f_notiz').value.trim()
+  };
+  if (editing.eid) Object.assign(c.entries.find(x => x.id === editing.eid), data);
+  else c.entries.push({ id: uid(), ...data });
+  save(); stopListening(); $('#dlg').close(); view = c.id; render(); toast('Gespeichert');
+});
+$('#cancelBtn').onclick = () => { stopListening(); $('#dlg').close(); };
+$('#dlg').addEventListener('close', stopListening);
+document.querySelectorAll('input[name=futter],input[name=varroa]').forEach(r => r.addEventListener('change', syncToggles));
+
+/* ---------- Spracherkennung ---------- */
+let rec = null, recBtn = null;
+function stopListening() { if (rec) { try { rec.abort(); } catch (e) {} } rec = null; if (recBtn) recBtn.classList.remove('on'); recBtn = null; }
+function listen(btn, onText, onInterim) {
+  if (rec) { stopListening(); return; }
+  rec = new SR(); recBtn = btn;
+  rec.lang = 'de-DE'; rec.interimResults = true; rec.continuous = false;
+  btn.classList.add('on');
+  let finalText = '';
+  rec.onresult = ev => {
+    let interim = '';
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const t = ev.results[i][0].transcript;
+      if (ev.results[i].isFinal) finalText += t; else interim += t;
+    }
+    onInterim && onInterim(finalText + interim);
+  };
+  rec.onerror = ev => {
+    const m = { 'not-allowed': 'Mikrofonzugriff nicht erlaubt.', 'no-speech': 'Nichts gehört.', 'audio-capture': 'Kein Mikrofon gefunden.', 'network': 'Spracherkennung benötigt Internet (Browser-Dienst).' };
+    if (ev.error !== 'aborted') toast(m[ev.error] || 'Fehler: ' + ev.error);
+  };
+  rec.onend = () => { const t = finalText.trim(); const b = btn; rec = null; recBtn = null; b.classList.remove('on'); if (t) onText(t); };
+  try { rec.start(); } catch (e) { stopListening(); }
+}
+
+const WORDS = { eins: 1, ein: 1, zwei: 2, drei: 3, vier: 4, 'fünf': 5, sechs: 6, sieben: 7, acht: 8, neun: 9, zehn: 10, elf: 11, 'zwölf': 12 };
+function normalize(t) {
+  t = t.toLowerCase().replace(/(\d+)\s*komma\s*(\d+)/g, '$1,$2').replace(/(\d)\.(\d)/g, '$1,$2');
+  t = t.replace(/(volk|ableger)\s+(eins|zwei|drei|vier|fünf|sechs|sieben|acht|neun|zehn|elf|zwölf)\b/g, (m, a, w) => a + ' ' + WORDS[w]);
+  return t;
+}
+const toNum = s => parseFloat(String(s).replace(',', '.'));
+const NUM = '(\\d+(?:,\\d+)?)';
+const COLOR = '(gr[üu]n|gelb|rot)';
+const colorKey = s => s.startsWith('gr') ? 'gruen' : s;
+const MITTEL = ['ameisensäure', 'oxalsäure', 'milchsäure', 'thymol', 'apivar', 'apiguard', 'formivar', 'varromed', 'api-bioxal', 'bayvarol', 'perizin', 'amitraz', 'hopguard', 'liebig-dispenser'];
+
+function parseEntry(raw) {
+  const t = normalize(raw), p = {};
+  let m;
+  if (/\bgestern\b/.test(t)) p.datum = shiftDay(-1); else if (/\bvorgestern\b/.test(t)) p.datum = shiftDay(-2); else if (/\bheute\b/.test(t)) p.datum = today();
+  if ((m = t.match(/(?:datum|am)\s+(\d{1,2})\.\s*(\d{1,2})\.?(?:\s*(\d{4}))?/))) {
+    const y = m[3] || new Date().getFullYear();
+    p.datum = `${y}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  }
+  if ((m = t.match(new RegExp('gewicht\\D{0,12}' + NUM)))) p.gewicht = toNum(m[1]);
+
+  if (/kein(?:e)?\s+futter|futter\s+nein|nicht\s+gef[üu]ttert|ohne\s+futter|futterzugabe\s+nein/.test(t)) { p.futter = false; p.futterMenge = null; }
+  else if (/futter|gef[üu]ttert|f[üu]tterung|sirup|zuckerwasser/.test(t)) {
+    p.futter = true;
+    const m1 = t.match(new RegExp('(?:futter(?:menge|zugabe)?|menge|gef[üu]ttert)\\D{0,25}?' + NUM + '\\s*(kg|kilo|liter|l)?\\b'));
+    const m2 = t.match(new RegExp(NUM + '\\s*(kg|kilo|liter|l)\\s*(?:futter|sirup|zuckerwasser|zucker)'));
+    const mm = m1 || m2;
+    if (mm) { p.futterMenge = toNum(mm[1]); if (mm[2]) p.futterEinheit = /^l/.test(mm[2]) ? 'Liter' : 'kg'; }
+  }
+
+  if (/k[öo]nigin\s+nicht\s+(?:ge)?(?:tauscht|wechselt)|k[öo]nigin\s+(?:ge)?(?:tauscht|wechselt)\s+nein|keine\s+k[öo]nigin(?:nen)?(?:tausch|wechsel)/.test(t)) p.koeniginGetauscht = false;
+  else if (/k[öo]nigin\s+(?:ge)?(?:tauscht|wechselt)|k[öo]nigin(?:nen)?(?:tausch|wechsel)|umgeweiselt|neue\s+k[öo]nigin/.test(t)) p.koeniginGetauscht = true;
+
+  if ((m = t.match(new RegExp('(?:k[öo]nigin(?:\\s*status)?|status\\s*k[öo]nigin)\\s*(?:ist\\s*)?' + COLOR)))) p.koeniginStatus = colorKey(m[1]);
+  if ((m = t.match(new RegExp('(?:zustand|bewertung)\\s*(?:ist\\s*)?' + COLOR)))) p.zustand = colorKey(m[1]);
+
+  if (/varroa|behandelt|ameisens|oxals|milchs|thymol/.test(t)) {
+    if (/varroa(?:behandlung)?\s+nein|keine\s+varroa|nicht\s+behandelt/.test(t)) { p.varroa = false; p.varroaMittel = ''; }
+    else {
+      p.varroa = true;
+      const known = MITTEL.find(k => t.includes(k));
+      const mm = t.match(/mittel\s+(.+?)(?=[,.;]|\s+(?:zustand|bewertung|k[öo]nigin|gewicht|futter|varroa)|$)/);
+      const val = known || (mm && mm[1].trim());
+      if (val) p.varroaMittel = val.charAt(0).toUpperCase() + val.slice(1);
+    }
+  }
+  return p;
+}
+function shiftDay(n) { const d = new Date(today() + 'T00:00:00'); d.setDate(d.getDate() + n); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); }
+
+function handleCommand(raw) {
+  const t = normalize(raw);
+  toast('„' + raw + '“');
+  if (/\bneu(?:es|er|e)?\s+(?:bienen)?volk\b/.test(t) || /\bvolk\s+anlegen\b/.test(t)) { view = addColony('volk').id; render(); return; }
+  if (/\bneu(?:es|er|e)?\s+ableger\b/.test(t) || /\bableger\s+anlegen\b/.test(t)) { view = addColony('ableger').id; render(); return; }
+  const m = t.match(/\b(volk|ableger)\s+(\d+)/);
+  let c = null;
+  if (m) {
+    c = db.colonies.find(x => x.type === m[1] && x.nr === +m[2]);
+    if (!c) { toast(`${m[1] === 'volk' ? 'Volk' : 'Ableger'} ${m[2]} existiert nicht.`); return; }
+  } else if (view) c = findColony(view);
+  if (!c) { toast('Nicht verstanden. Beispiel: „Volk 3 Gewicht 25 Futter ja …“'); return; }
+  view = c.id; render();
+  openForm(c.id, null, parseEntry(raw));
+  $('#transcript').textContent = '„' + raw + '“';
+}
+
+/* ---------- Export / Import ---------- */
+function download(fn, text, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type })); a.download = fn; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function exportJson() { download(`stockkarten-${today()}.json`, JSON.stringify(db, null, 2), 'application/json'); }
+function exportCsv() {
+  const head = ['Stock', 'Datum', 'Gewicht kg', 'Futter', 'Futtermenge', 'Einheit', 'Königin getauscht', 'Status Königin', 'Varroa-Behandlung', 'Mittel', 'Zustand', 'Notiz'];
+  const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+  const rows = [];
+  db.colonies.forEach(c => sorted(c).reverse().forEach(e => rows.push([name(c), e.datum, e.gewicht ?? '', e.futter ? 'j' : 'n', e.futterMenge ?? '', e.futter ? e.futterEinheit : '',
+    e.koeniginGetauscht ? 'j' : 'n', AMPEL[e.koeniginStatus], e.varroa ? 'j' : 'n', e.varroaMittel, AMPEL[e.zustand], e.notiz].map(q).join(';'))));
+  download(`stockkarten-${today()}.csv`, '﻿' + [head.map(q).join(';'), ...rows].join('\r\n'), 'text/csv;charset=utf-8');
+}
+$('#importFile').addEventListener('change', async ev => {
+  const f = ev.target.files[0]; ev.target.value = ''; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    if (!d.colonies || !d.counters) throw 0;
+    if (!confirm('Aktuelle Daten durch die Sicherung ersetzen?')) return;
+    db = d; save(); view = null; render(); toast('Wiederhergestellt');
+  } catch (e) { alert('Ungültige Sicherungsdatei.'); }
+});
+
+/* ---------- Events ---------- */
+document.addEventListener('click', ev => {
+  const el = ev.target.closest('[data-a]'); if (!el) return;
+  const a = el.dataset.a, id = el.dataset.id;
+  switch (a) {
+    case 'newVolk': view = addColony('volk').id; render(); break;
+    case 'newAbleger': view = addColony('ableger').id; render(); break;
+    case 'open': view = id; render(); break;
+    case 'back': view = null; render(); break;
+    case 'newEntry': openForm(view); break;
+    case 'editEntry': openForm(view, id); break;
+    case 'delEntry': if (confirm('Eintrag löschen?')) { const c = findColony(view); c.entries = c.entries.filter(e => e.id !== id); save(); render(); } break;
+    case 'delColony': deleteColony(id); break;
+    case 'export': exportJson(); break;
+    case 'csv': exportCsv(); break;
+    case 'import': $('#importFile').click(); break;
+    case 'cmdMic': listen(el, handleCommand, t => toast('🎤 ' + t, true)); break;
+    case 'entryMic': listen(el, t => { if (view) { openForm(view, null, parseEntry(t)); $('#transcript').textContent = '„' + t + '“'; } }, t => toast('🎤 ' + t, true)); break;
+  }
+});
+$('#formMic').onclick = e => listen(e.currentTarget, t => { $('#transcript').textContent = '„' + t + '“'; fillForm(parseEntry(t)); }, t => { $('#transcript').textContent = '🎤 ' + t; });
+
+let toastTimer;
+function toast(msg, keep) {
+  const el = $('#toast'); el.textContent = msg; el.style.display = 'block';
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.style.display = 'none', keep ? 4000 : 3000);
+}
+
+render();
+
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); // Daten bleiben auf dem Gerät, Browser soll sie nicht löschen
+let deferredInstall;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredInstall = e; $('#installBtn').style.display = ''; });
+$('#installBtn').onclick = async () => { if (!deferredInstall) return; deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall = null; $('#installBtn').style.display = 'none'; };
+if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !navigator.standalone) {
+  const h = document.createElement('p'); h.className = 'hint';
+  h.textContent = 'iPhone/iPad: In Safari auf „Teilen“ tippen → „Zum Home-Bildschirm“, um die App zu installieren.';
+  document.querySelector('main').after(h);
+}
+</script>
+</body>
+</html>
